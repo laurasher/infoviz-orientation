@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+  <head>
+	  <meta http-equiv="expires" content="Mon, 26 Jul 1997 05:00:00 GMT"/> <meta http-equiv="pragma" content="no-cache" />
+	  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+	  <script src="https://d3js.org/d3.v4.js"></script>
+	  <style type="text/css">
+svg{
+	display: block;
+	padding-top:10px;
+	margin: auto;
+}
+@font-face {
+    font-family: "proxima-nova-bold";
+    src: url("/fonts/ProximaNova-Bold.woff") format('woff');
+}
+@font-face {
+    font-family: "proxima-nova";
+    src: url("/fonts/ProximaNova.woff") format('woff');
+}
+button{
+	height: 50px;
+	width: 100px;
+	font-family: "proxima-nova-bold";
+	font-size: 24px;
+	border-radius: 50px;
+	background : gray;
+	border: none;
+  	color: white;
+  	text-decoration: none;
+}
+.button-box{
+	padding:20px;
+	width: 250px;
+	margin: auto;
+}
+.bubble-2017{
+	display: none;
+}
+.bubble-2018{
+	display: none;
+}
+body{
+	font-family: "proxima-nova-bold";
+}
+	  </style>
+  </head>
+  <body>
+  	<div id="button-box" class="button-box">
+  		<button id ="button-2017" type="button" autofocus>2017</button>
+  		<button id ="button-2018" type="button" autofocus>2018</button>
+  	</div>
+  	<div id="intro-p" style="width:800px;font-size:18px;display: block;margin:auto;text-align:center;font-family:'proxima-nova-bold';padding:20px;">Brit loves music. She returns to it throughout the day to recapture memories or events.<BR>Explore how her last two years' top tracks reflect life events and moods.</div>
+	<script>
+		$("#button-2017").click(function(){
+			console.log("Show 2017")
+			$("#button-2017").css("background","gray")
+			$("#button-2018").css("background","buttonface")
+			$('.bubble-2017').show();
+			$('.bubble-2018').hide();
+		});
+		$("#button-2018").click(function(){
+			console.log("Show 2018")
+			$("#button-2018").css("background","gray")
+			$("#button-2017").css("background","buttonface")
+			$('.bubble-2017').hide();
+			$('.bubble-2018').show();
+		});
+
+		var tag_arr = [[],[]]
+		var tag_json = [
+		{"children": 
+			[]
+        }, 
+		{"children": 
+			[]
+        }]
+		//import song-data file
+		var get_song_json = function() {
+			var json = null;
+        	$.ajax({
+        	    "async": false,
+        	    "url": "/song-data.json",
+        	    "dataType": "json",
+        	    "success": function (data) {
+        	        json = data;
+        	    }
+        	});
+        	return json;
+		};
+		var song_data = get_song_json();
+		//get all tags in an array
+		for (var year = 0; year < song_data.length; year++){
+			for (var track = 0; track < song_data[year]["songs"].length; track++){
+				for (var tag = 0; tag < song_data[year]["songs"][track]["tags"].length; tag++){
+					cur_tag = song_data[year]["songs"][track]["tags"][tag];
+					if (!tag_arr[year].includes(cur_tag)){
+						tag_arr[year].push(cur_tag);
+						tag_json[year]["children"].push({"tag":cur_tag,"count":1});
+					}
+					else{
+						//find index of existing tag and increase count
+						for (var i=0; i<tag_json[year]["children"].length; i++){
+							if (tag_json[year]["children"][i]["tag"] == cur_tag){
+								tag_json[year]["children"][i]["count"] = tag_json[year]["children"][i]["count"]+1;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		song_data = tag_json[0]
+		console.log(song_data)
+		var diameter = 750;
+        var color = d3.scaleOrdinal(d3.schemeCategory20b);
+        var color = 'gray'
+        var tooltip = d3.select("body").append("div")
+      		.style("opacity", 0)
+      		.attr("class", "tooltip")
+      		.style("background-color", "white")
+      		.style("border-radius", "5px")
+      		.style("padding", "10px")
+      		.style("color", "black")
+      		.style("position","absolute")
+
+      	var showTooltip = function(d) {
+      		var x = d3.event.x,
+            	y = d3.event.y;
+    		tooltip
+      			.transition()
+      			.duration(200)
+    		tooltip
+    		  .style("opacity", .95)
+    		  .html(d.data.tag)
+    		  .style("left", (d3.event.pageX) + "px")
+         	  .style("top", (d3.event.pageY) + "px");
+  		}
+  		var moveTooltip = function(d) {
+  			var x = d3.event.x,
+            	y = d3.event.y;
+    		tooltip
+    		  .style("left", (x+30) + "px")
+    		  .style("top", (y+30) + "px")
+  		}
+  		var hideTooltip = function(d) {
+  		  	tooltip
+  		  	  .transition()
+  		  	  .duration(200)
+  		  	  .style("opacity", 0)
+  		}
+
+		var bubble = d3.pack(song_data)
+	           		.size([diameter, diameter])
+	           		.padding(1.5);
+
+	    var svg = d3.select("body")
+        .append("svg")
+        .attr("width", diameter)
+        .attr("height", diameter)
+        .attr("class", "bubble-2017");
+
+       	var nodes = d3.hierarchy(song_data)
+       	.sum(function(d) { return d.count; });
+
+        var node = svg.selectAll(".node")
+        .data(bubble(nodes).descendants())
+        .enter()
+        .filter(function(d){
+            return  !d.children
+        })
+        .append("g")
+        .attr("class", "node")
+        .attr("transform", function(d) {
+            return "translate(" + d.x + "," + d.y + ")";
+        });
+
+     	node.append("circle")
+        	.attr("r", function(d) {
+        	    return d.r;
+        	})
+        	.style("fill", function(d,i) {
+        	    return '#1db954';
+        	})
+        	.on("mouseover", showTooltip)
+    		.on("mousemove", moveTooltip )
+    		.on("mouseleave", hideTooltip );
+
+        node.append("text")
+        	.attr("dy", ".2em")
+        	.style("text-anchor", "middle")
+        	.text(function(d) {
+        	    return d.data.tag.substring(0, d.r / 3);
+        	})
+        	.attr("font-family", "proxima-nova-bold")
+        	.attr("font-size", function(d){
+        	    return d.r/4.2;
+        	})
+        	.attr("fill", "black");
+        	d3.select(self.frameElement)
+        	.style("height", diameter + "px");
+
+
+        ////////////////////////////////////////////////////////////////// 2018
+		song_data = tag_json[1]
+		var bubble = d3.pack(song_data)
+	      	    .size([diameter, diameter])
+	      	    .padding(1.5);
+
+	        var svg = d3.select("body")
+            .append("svg")
+            .attr("width", diameter)
+            .attr("height", diameter)
+            .attr("class", "bubble-2018");
+
+            var nodes = d3.hierarchy(song_data)
+            .sum(function(d) { return d.count; });
+
+            var node = svg.selectAll(".node")
+            .data(bubble(nodes).descendants())
+            .enter()
+            .filter(function(d){
+                return  !d.children
+            })
+            .append("g")
+            .attr("class", "node")
+            .attr("transform", function(d) {
+                return "translate(" + d.x + "," + d.y + ")";
+            });
+
+        	node.append("circle")
+            .attr("r", function(d) {
+                return d.r;
+            })
+            .on("mouseover", showTooltip)
+    		.on("mousemove", moveTooltip )
+    		.on("mouseleave", hideTooltip )
+            .style("fill", function(d,i) {
+                //return color(i);
+                return "#1db954";
+            });
+            node.append("text")
+            .attr("dy", ".2em")
+            .style("text-anchor", "middle")
+            .text(function(d) {
+                return d.data.tag.substring(0, d.r / 3);
+            })
+            .attr("font-family", "proxima-nova-bold")
+            .attr("font-size", function(d){
+                return d.r/4.2;
+            })
+            .attr("fill", "black");
+            d3.select(self.frameElement)
+            .style("height", diameter + "px");
+   	</script>
+  </body>
+</html>
+
